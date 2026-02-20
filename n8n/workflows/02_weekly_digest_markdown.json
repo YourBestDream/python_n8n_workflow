@@ -1,0 +1,134 @@
+{
+  "name": "02 - Weekly Digest Markdown",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual-trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        220,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "weeksInterval": 1,
+              "triggerAtDay": [
+                1
+              ],
+              "triggerAtHour": 9,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger-weekly",
+      "name": "Schedule Trigger (Mon 09:00 UTC)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        220,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "url": "http://host.docker.internal:8000/digest/weekly?days=7&group_by=category"
+      },
+      "id": "fetch-weekly-digest",
+      "name": "Fetch Weekly Digest",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const markdown = $input.first().json.markdown || '';\nreturn [{\n  json: {\n    ...$input.first().json,\n    markdown\n  },\n  binary: {\n    digestFile: {\n      data: Buffer.from(markdown, 'utf8').toString('base64'),\n      mimeType: 'text/markdown',\n      fileName: 'weekly_digest_latest.md'\n    }\n  }\n}];"
+      },
+      "id": "to-markdown-file",
+      "name": "Convert Markdown to File",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        700,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "fileName": "=/outputs/weekly_digest_latest.md",
+        "dataPropertyName": "digestFile"
+      },
+      "id": "write-markdown-file",
+      "name": "Write Markdown File",
+      "type": "n8n-nodes-base.writeBinaryFile",
+      "typeVersion": 1,
+      "position": [
+        960,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch Weekly Digest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger (Mon 09:00 UTC)": {
+      "main": [
+        [
+          {
+            "node": "Fetch Weekly Digest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Weekly Digest": {
+      "main": [
+        [
+          {
+            "node": "Convert Markdown to File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert Markdown to File": {
+      "main": [
+        [
+          {
+            "node": "Write Markdown File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "timezone": "UTC"
+  },
+  "pinData": {},
+  "versionId": "weekly-digest-v1"
+}
