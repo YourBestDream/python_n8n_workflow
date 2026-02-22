@@ -1,149 +1,214 @@
 # Runbook
 
-## 1. Environment Configuration
+## 1. Purpose
+
+This project runs an AI news pipeline with four n8n workflows:
+
+1. RSS ingestion into PostgreSQL
+2. Weekly digest generation (Markdown)
+3. Vector indexing (Chroma + embeddings)
+4. RAG chat agent (Webhook + Chat Trigger)
+
+## 2. Prerequisites
+
+- Docker Desktop (required for `docker compose` and `host.docker.internal`)
+- `make` (optional, recommended)
+- `.env` populated from `.env.example`
+
+## 3. Environment Configuration
 
 Set these in `.env`:
 
-- `DATABASE_URL`: PostgreSQL DSN for the `articles` table
-- `RSS_FEED_URLS`: comma-separated RSS sources (2-3 minimum)
-- `CHROMA_PATH`: local path for ChromaDB persistence
-- `CHROMA_COLLECTION`: collection name for article chunks
-- `OPENAI_API_KEY`: used for embeddings + chat completion
+- `DATABASE_URL`: PostgreSQL DSN for `articles` table
+- `RSS_FEED_URLS`: comma-separated RSS sources
+- `CHROMA_PATH`: path for Chroma persistence
+- `CHROMA_COLLECTION`: Chroma collection name
+- `OPENAI_API_KEY`: OpenAI API key
 - `EMBEDDING_MODEL`: embedding model name
 - `CHAT_MODEL`: chat model name
-- `CHUNK_SIZE`: characters per chunk
-- `CHUNK_OVERLAP`: overlap size between chunks
+- `CHUNK_SIZE`: chunk size for indexing
+- `CHUNK_OVERLAP`: chunk overlap for indexing
 - `DEFAULT_TOP_K`: default retrieval count for chat
 
-## 2. Bring up Services
+## 4. Local Test Environment (Optional)
 
-With Docker Compose:
+If you want to run tests outside Docker, create and use a virtual environment.
 
-```bash
-docker compose up -d --build postgres api n8n
+Windows (PowerShell):
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
 ```
 
-With Make:
+Linux/macOS (bash/zsh):
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+```
+
+Run tests (all OS):
+
+```bash
+make test
+```
+
+Equivalent:
+
+```bash
+python -m pytest -q
+```
+
+## 5. Start Services
+
+Preferred:
 
 ```bash
 make up
 ```
 
-The `api` service runs DB migration on startup and then launches Uvicorn on port `8000`.
+Equivalent:
 
-## 3. Apply DB Migration (manual, optional)
+```bash
+docker compose up -d --build postgres api n8n
+```
 
-From API container:
+This starts:
+
+- PostgreSQL on `localhost:5433`
+- API on `localhost:8000`
+- n8n on `localhost:5678`
+
+The API container runs DB migration on startup, then starts Uvicorn.
+
+## 6. Optional Migration Commands
+
+Migration is automatic on API startup. Manual options:
 
 ```bash
 docker compose exec api python -m scripts.run_migration
 ```
 
-From local Python environment:
-
 ```bash
 make migrate
 ```
 
-## 4. Start Backend API
+## 7. Verify Services
 
-In Docker:
+API health:
 
-```bash
-docker compose up -d api
-```
+Linux/macOS:
 
 ```bash
-make api
+curl -sS http://localhost:8000/health
 ```
 
-Locally (without Dockerized API):
+Windows (PowerShell):
 
-```bash
-make api-local
+```powershell
+Invoke-RestMethod -Uri http://localhost:8000/health -Method Get
 ```
 
-## 5. Import and Run n8n Workflows
+Open n8n UI:
 
-Import files from `n8n/workflows/`:
+- `http://localhost:5678`
+
+## 8. Import n8n Workflows
+
+Import these files from `n8n/workflows/`:
 
 1. `01_rss_to_db.json`
 2. `02_weekly_digest_markdown.json`
 3. `03_vector_indexing.json`
 4. `04_rag_chat_agent.json`
 
-Run order:
+## 9. Run Current Flow
 
-1. Run `01 - RSS to Database` (ingests + normalizes + upserts)
-2. Run `03 - Vector Indexing` (chunks + embeds + upserts vectors)
-3. Run `02 - Weekly Digest Markdown` (produces markdown output)
-4. Activate `04 - RAG Chat Agent` and call webhook
+### Manual run order in n8n
 
-Equivalent API triggers via Make:
+1. Run `01 - RSS to Database`
+2. Run `03 - Vector Indexing`
+3. Run `02 - Weekly Digest Markdown`
+4. Run `04 - RAG Chat Agent` using either Webhook or Chat Trigger
+
+### Equivalent API calls via Make
 
 ```bash
 make ingest
 make index
 make digest
-make chat QUESTION="What product launches happened this week?"
+make chat QUESTION="What happened in AI news this week?"
 ```
 
-Built-in schedules (UTC):
+## 10. Schedules (UTC)
 
 - `01 - RSS to Database`: daily at 08:00
 - `03 - Vector Indexing`: daily at 08:20
 - `02 - Weekly Digest Markdown`: Monday at 09:00
 
-To use schedules, toggle each workflow to `Active`.
+To use schedules, set those workflows to `Active`.
 
-## 6. Workflow Outputs
+## 11. RAG Chat Usage
 
-- RSS ingestion output: node response with `db_upserts` count
-- Weekly digest:
-  - n8n JSON output field `markdown`
-  - file output `/outputs/weekly_digest_latest.md`
-- Vector indexing output: counts for selected articles and upserted chunks
-- Chat output: JSON answer with `citations`
+`04 - RAG Chat Agent` supports two entry points:
 
-## 7. Example Chat Request
+1. **Webhook path** (`Chat Webhook` node):
+   - POST JSON body with `question`
+   - Active URL shape in n8n: `/webhook/ai-news-rag-chat`
+2. **Chat Trigger** (`Chat Trigger` node):
+   - Ask directly from n8n chat interface
 
-POST to active webhook URL:
+The workflow normalizes inputs, calls API `/chat`, and returns a plain text response.
+Responses are formatted for readability and may include inline source URLs in the answer text.
 
-```json
-{
-  "question": "What product launches happened this week and which sources reported them?"
-}
-```
+## 12. Outputs
 
-## 8. Makefile Aliases
+- Weekly digest file: `outputs/weekly_digest_latest.md`
+- Example digest file: `outputs/weekly_digest_example.md`
+- Example chat transcript: `outputs/chat_transcript.md`
+- Example CSV export: `outputs/sample_articles_export.csv`
+- Flow screenshots: `outputs/screenshots/`
 
-If you have `make` installed, use:
+API endpoint response behavior:
 
-```bash
-make help
-make bootstrap
-make api
-make api-local
-make ingest
-make index
-make digest
-make chat QUESTION="What product launches happened this week?"
-```
+- `GET /digest/weekly`: JSON including `markdown`
+- `POST /chat`: JSON including `answer`, `citations`, `retrieved_chunks`
+- n8n chat workflow (`04`) returns plain text to the caller
 
-To stop services:
+## 13. Shutdown
+
+Preferred:
 
 ```bash
 make down
 ```
 
-Expected response shape:
+Equivalent:
 
-```json
-{
-  "answer": "...",
-  "citations": [
-    "https://..."
-  ],
-  "retrieved_chunks": 6
-}
+```bash
+docker compose down
+```
+
+## 14. Useful Make Targets
+
+```bash
+make help
+make install
+make up
+make down
+make api
+make api-local
+make migrate
+make seed
+make test
+make ingest
+make index
+make digest
+make chat QUESTION="What product launches happened this week?"
+make outputs
 ```
