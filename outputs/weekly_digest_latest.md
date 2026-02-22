@@ -1,8 +1,8 @@
 # AI News Digest
 
-**Week Range:** 2026-02-13 to 2026-02-20
+**Week Range:** 2026-02-15 to 2026-02-22
 
-Generated at 2026-02-20T19:40:42.670436+00:00
+Generated at 2026-02-22T11:37:42.826570+00:00
 ## General
 
 - **Train AI models with Unsloth and Hugging Face Jobs for FREE**
@@ -49,3 +49,12 @@ Generated at 2026-02-20T19:40:42.670436+00:00
   - Source: OpenAI News
   - Date: 2026-02-18
   - URL: https://openai.com/index/openai-for-india
+
+
+## Research
+
+- **Our First Proof submissions**
+  - Summary: We share our AI model’s proof attempts for the First Proof math challenge, testing research-grade reasoning on expert-level problems.
+  - Source: OpenAI News
+  - Date: 2026-02-20
+  - URL: https://openai.com/index/first-proof-submissions

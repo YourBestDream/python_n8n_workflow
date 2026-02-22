@@ -6,16 +6,17 @@ DOCKER_COMPOSE ?= docker compose
 API_URL ?= http://localhost:8000
 QUESTION ?= What happened in AI news this week?
 
-.PHONY: help install up down migrate seed api test bootstrap ingest index digest chat outputs
+.PHONY: help install up down migrate seed api api-local test bootstrap ingest index digest chat outputs
 
 help:
 	@echo Available targets:
 	@echo   make install    - Install Python dependencies
-	@echo   make up         - Start postgres + n8n containers
+	@echo   make up         - Start postgres + api + n8n containers
 	@echo   make down       - Stop containers
-	@echo   make migrate    - Apply DB migration
+	@echo   make migrate    - Apply DB migration locally
+	@echo   make api        - Run API container via docker compose
+	@echo   make api-local  - Run FastAPI app on :8000 locally
 	@echo   make seed       - Seed sample articles
-	@echo   make api        - Run FastAPI app on :8000
 	@echo   make test       - Run unit tests
 	@echo   make bootstrap  - install + up + migrate + seed
 	@echo   make ingest     - Trigger RSS ingest endpoint
@@ -28,7 +29,7 @@ install:
 	$(PIP) install -r requirements.txt
 
 up:
-	$(DOCKER_COMPOSE) up -d postgres n8n
+	$(DOCKER_COMPOSE) up -d --build postgres api n8n
 
 down:
 	$(DOCKER_COMPOSE) down
@@ -40,6 +41,9 @@ seed:
 	$(PYTHON) -m scripts.seed_sample_articles
 
 api:
+	$(DOCKER_COMPOSE) up -d --build api
+
+api-local:
 	$(PYTHON) -m uvicorn app.main:app --host 0.0.0.0 --port 8000
 
 test:

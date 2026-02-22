@@ -17,20 +17,50 @@ Set these in `.env`:
 
 ## 2. Bring up Services
 
+With Docker Compose:
+
 ```bash
-docker compose up -d postgres n8n
+docker compose up -d --build postgres api n8n
 ```
 
-## 3. Apply DB Migration
+With Make:
 
 ```bash
-python -m scripts.run_migration
+make up
+```
+
+The `api` service runs DB migration on startup and then launches Uvicorn on port `8000`.
+
+## 3. Apply DB Migration (manual, optional)
+
+From API container:
+
+```bash
+docker compose exec api python -m scripts.run_migration
+```
+
+From local Python environment:
+
+```bash
+make migrate
 ```
 
 ## 4. Start Backend API
 
+In Docker:
+
 ```bash
-uvicorn app.main:app --host 0.0.0.0 --port 8000
+docker compose up -d api
+```
+
+```bash
+make api
+```
+
+Locally (without Dockerized API):
+
+```bash
+make api-local
 ```
 
 ## 5. Import and Run n8n Workflows
@@ -48,6 +78,15 @@ Run order:
 2. Run `03 - Vector Indexing` (chunks + embeds + upserts vectors)
 3. Run `02 - Weekly Digest Markdown` (produces markdown output)
 4. Activate `04 - RAG Chat Agent` and call webhook
+
+Equivalent API triggers via Make:
+
+```bash
+make ingest
+make index
+make digest
+make chat QUESTION="What product launches happened this week?"
+```
 
 Built-in schedules (UTC):
 
@@ -83,10 +122,18 @@ If you have `make` installed, use:
 ```bash
 make help
 make bootstrap
+make api
+make api-local
 make ingest
 make index
 make digest
 make chat QUESTION="What product launches happened this week?"
+```
+
+To stop services:
+
+```bash
+make down
 ```
 
 Expected response shape:
